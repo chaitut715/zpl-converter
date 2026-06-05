@@ -15,5 +15,5 @@ All notable changes to this project will be documented here.
 - Configurable DPI (152 / 203 / 300 / 600) and label dimensions (width × height in inches)
 - Output files named after the source file (e.g. `203032468.pdf`)
 - QR code compatibility fix — rewrites manual-mode `^FD` fields to labelize-compatible format
-- macOS Apple Silicon support for local development
+- macOS Apple Silicon self-contained `.app` bundle built by GitHub Actions CI
 - Windows 10/11 x64 self-contained executable built by GitHub Actions CI

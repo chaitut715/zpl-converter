@@ -7,23 +7,28 @@ on:
   pull_request:
     branches: [main]
 
+# ---------------------------------------------------------------
+# Jobs overview
+#   build-windows  — compiles labelize from source, PyInstaller onedir
+#   build-macos    — downloads labelize ARM binary, PyInstaller .app bundle
+#   release        — on v* tags only: collects both artifacts → GitHub Release
+# ---------------------------------------------------------------
+
 jobs:
-  build:
-    name: Windows x64 build
+
+  # =============================================================
+  # 1. Windows x64
+  # =============================================================
+  build-windows:
+    name: Windows x64
     runs-on: windows-latest
     permissions:
       contents: write
 
     steps:
-      # ---------------------------------------------------------------
-      # 1. Source
-      # ---------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------------------------------------------------------------
-      # 2. Python
-      # ---------------------------------------------------------------
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -36,9 +41,6 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # ---------------------------------------------------------------
-      # 3. Build labelize.exe from source (no pre-built Windows binary)
-      # ---------------------------------------------------------------
       - name: Install Rust (stable, MSVC)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -51,7 +53,6 @@ jobs:
           if (-not (Test-Path "labelize-src")) {
             git clone https://github.com/GOODBOY008/labelize labelize-src
           }
-          Write-Host "Labelize source ready."
 
       - name: Cache Rust build artifacts
         uses: actions/cache@v4
@@ -69,10 +70,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== cargo build --release --features cli ==="
           cargo build --release --features cli
-          echo "=== target/release contents ==="
-          ls -lh target/release/*.exe 2>/dev/null || ls -lh target/release/ | head -20
+          ls -lh target/release/*.exe
 
       - name: Copy labelize.exe to assets
         shell: bash
@@ -80,18 +79,12 @@ jobs:
           set -euo pipefail
           BIN=$(find labelize-src/target/release -maxdepth 1 -name "*.exe" | head -1)
           if [ -z "$BIN" ]; then
-            echo "ERROR: No .exe found in labelize-src/target/release/"
-            find labelize-src/target -name "*.exe" 2>/dev/null || true
-            exit 1
+            echo "ERROR: labelize.exe not found"; exit 1
           fi
-          echo "Found binary: $BIN"
           mkdir -p assets
           cp "$BIN" assets/labelize.exe
-          echo "Copied OK — $(du -h assets/labelize.exe | cut -f1)"
+          echo "Copied: $(du -h assets/labelize.exe | cut -f1)"
 
-      # ---------------------------------------------------------------
-      # 4. PyInstaller build
-      # ---------------------------------------------------------------
       - name: Build with PyInstaller
         run: pyinstaller zpl_converter.spec
 
@@ -99,38 +92,26 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "dist\zpl_converter\zpl_converter.exe")) {
-            Write-Error "zpl_converter.exe not found in dist\zpl_converter\"
-            exit 1
+            Write-Error "zpl_converter.exe not found"; exit 1
           }
-          Write-Host "Build output OK."
-          Get-ChildItem "dist\zpl_converter\" | Format-Table Name, Length
+          Write-Host "Build OK"
 
-      # ---------------------------------------------------------------
-      # 5. Package portable zip
-      # ---------------------------------------------------------------
-      - name: Create portable zip
+      - name: Package portable zip
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF -match "refs/tags/(.+)") { $Matches[1] } else { "dev" }
           $zipName = "zpl-converter-$version-windows-x64-portable.zip"
           Compress-Archive -Path "dist\zpl_converter\*" -DestinationPath $zipName
-          Write-Host "Created $zipName"
-          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+          Write-Host "Packaged: $zipName"
 
-      # ---------------------------------------------------------------
-      # 6. Upload portable zip as CI artifact (always)
-      # ---------------------------------------------------------------
       - name: Upload portable zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: zpl-converter-windows-x64-portable
-          path: ${{ env.ZIP_NAME }}
+          name: windows-portable
+          path: zpl-converter-*-windows-x64-portable.zip
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
-      # ---------------------------------------------------------------
-      # 7. Optional: compile Inno Setup installer
-      # ---------------------------------------------------------------
       - name: Install Inno Setup 6
         if: hashFiles('installer.iss') != ''
         shell: pwsh
@@ -142,34 +123,145 @@ jobs:
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
-            Write-Warning "Inno Setup not found — skipping installer build."
-            exit 0
-          }
+          if (-not (Test-Path $iscc)) { Write-Warning "Inno Setup not found — skipping."; exit 0 }
           & $iscc installer.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Write-Host "Installer compiled OK."
         continue-on-error: true
 
-      # ---------------------------------------------------------------
-      # 8. Publish GitHub Release on version tag (v*)
-      # ---------------------------------------------------------------
+      - name: Upload installer artifact
+        if: hashFiles('Output/zpl-converter-setup*.exe') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: Output/zpl-converter-setup-*.exe
+          if-no-files-found: warn
+          retention-days: 7
+
+  # =============================================================
+  # 2. macOS ARM64 (Apple Silicon)
+  # =============================================================
+  build-macos:
+    name: macOS ARM64
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Download labelize ARM binary
+        run: |
+          set -euo pipefail
+          mkdir -p assets /tmp/labelize-extract
+          curl -fsSL -o /tmp/labelize.tar.gz \
+            https://github.com/GOODBOY008/labelize/releases/download/v1.1.0/labelize-aarch64-apple-darwin.tar.gz
+          tar -xzf /tmp/labelize.tar.gz -C /tmp/labelize-extract/
+          # Handle any directory depth in the archive
+          BIN=$(find /tmp/labelize-extract -name labelize -type f | head -1)
+          if [ -z "$BIN" ]; then
+            echo "ERROR: labelize binary not found in archive"; exit 1
+          fi
+          cp "$BIN" assets/labelize
+          chmod +x assets/labelize
+          echo "labelize ready: $(assets/labelize --version 2>/dev/null || echo 'binary placed')"
+
+      - name: Build with PyInstaller
+        run: pyinstaller zpl_converter_macos.spec
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "dist/ZPL Converter.app" ]; then
+            echo "ERROR: ZPL Converter.app not found in dist/"; exit 1
+          fi
+          echo "Build OK — $(du -sh "dist/ZPL Converter.app" | cut -f1)"
+
+      - name: Package app bundle as zip
+        run: |
+          VERSION=$(echo "$GITHUB_REF" | sed 's|refs/tags/||')
+          [ "$VERSION" = "$GITHUB_REF" ] && VERSION="dev"
+          ZIP_NAME="zpl-converter-${VERSION}-macos-arm64.zip"
+          cd dist
+          zip -r "../${ZIP_NAME}" "ZPL Converter.app"
+          cd ..
+          echo "Packaged: ${ZIP_NAME} ($(du -sh "${ZIP_NAME}" | cut -f1))"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: zpl-converter-*-macos-arm64.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  # =============================================================
+  # 3. Publish GitHub Release (on version tags only)
+  # =============================================================
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows portable zip
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-portable
+          path: release-files/
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: release-files/
+        continue-on-error: true
+
+      - name: Download macOS zip
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64
+          path: release-files/
+
+      - name: List release files
+        run: ls -lh release-files/
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           name: ZPL Converter ${{ github.ref_name }}
           body: |
             ## ZPL Converter ${{ github.ref_name }}
 
-            Self-contained Windows 10/11 desktop app — converts ZPL label files to PNG and PDF, fully offline.
+            Self-contained desktop app — converts ZPL label files to PNG and PDF, fully offline.
 
             ### Downloads
 
-            | File | Description |
-            |---|---|
-            | `zpl-converter-*-portable.zip` | Portable — unzip and run `zpl_converter.exe`, no install needed |
-            | `zpl-converter-setup-*.exe` | Installer — adds Start Menu shortcut and uninstaller |
+            | File | Platform | Notes |
+            |---|---|---|
+            | `zpl-converter-*-windows-x64-portable.zip` | Windows 10/11 x64 | Unzip and run `zpl_converter.exe` |
+            | `zpl-converter-*-windows-installer.exe` | Windows 10/11 x64 | Installer with Start Menu shortcut |
+            | `zpl-converter-*-macos-arm64.zip` | macOS Apple Silicon (M1/M2/M3/M4) | Unzip, then see note below |
+
+            ### macOS first-run note
+
+            The app is not code-signed. On first open, right-click → **Open** → **Open** to bypass Gatekeeper.
+            Or remove the quarantine flag in Terminal:
+            ```bash
+            xattr -dr com.apple.quarantine "ZPL Converter.app"
+            ```
 
             ### What's included
             - ZPL → PNG / PDF rendering via [labelize](https://github.com/GOODBOY008/labelize) (bundled, MIT licensed)
@@ -177,10 +269,8 @@ jobs:
             - Multi-label ZPL support
             - QR code compatibility fix
 
-            See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for bundled software attribution.
-          files: |
-            ${{ env.ZIP_NAME }}
-            Output/zpl-converter-setup-*.exe
+            See [THIRD_PARTY_LICENSES.md](https://github.com/chaitut715/zpl-converter/blob/main/THIRD_PARTY_LICENSES.md) for bundled software attribution.
+          files: release-files/*
           fail_on_unmatched_files: false
           draft: false
           prerelease: false

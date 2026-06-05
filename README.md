@@ -3,9 +3,9 @@
 [![Build](https://github.com/chaitut715/zpl-converter/actions/workflows/build.yml/badge.svg)](https://github.com/chaitut715/zpl-converter/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/chaitut715/zpl-converter)](https://github.com/chaitut715/zpl-converter/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)](https://github.com/chaitut715/zpl-converter/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue)](https://github.com/chaitut715/zpl-converter/releases/latest)
 
-A self-contained Windows 10/11 desktop application that converts ZPL (Zebra Programming Language) label files to PNG or PDF — fully offline, no Java required.
+A self-contained desktop application that converts ZPL (Zebra Programming Language) label files to PNG or PDF — fully offline, no Java required. Runs on **Windows 10/11** and **macOS Apple Silicon**.
 
 ![ZPL Converter screenshot](screenshots/app-preview.png)
 
@@ -103,12 +103,18 @@ Width and height are passed in millimetres (`inches × 25.4`).
 
 Grab the latest release from the [**Releases page**](https://github.com/chaitut715/zpl-converter/releases/latest):
 
-| File | Description |
-|---|---|
-| `zpl-converter-*-portable.zip` | **Portable** — unzip anywhere, run `zpl_converter.exe` |
-| `zpl-converter-setup-*.exe` | **Installer** — adds Start Menu shortcut and uninstaller |
+| File | Platform | Description |
+|---|---|---|
+| `zpl-converter-*-windows-x64-portable.zip` | Windows 10/11 | Unzip anywhere, run `zpl_converter.exe` |
+| `zpl-converter-setup-*.exe` | Windows 10/11 | Installer with Start Menu shortcut |
+| `zpl-converter-*-macos-arm64.zip` | macOS Apple Silicon | Unzip, then right-click → Open |
 
 No Python, no Java, no runtimes required.
+
+> **macOS first-run:** the app is not code-signed. Right-click the app → **Open** → **Open** to bypass Gatekeeper, or run:
+> ```bash
+> xattr -dr com.apple.quarantine "ZPL Converter.app"
+> ```
 
 ---
 
@@ -130,13 +136,22 @@ The workflow will build, package, and publish a GitHub Release automatically wit
 
 ### CI build steps
 
-1. Set up Python 3.12 and install dependencies
-2. Install Rust stable (MSVC) via `dtolnay/rust-toolchain@stable`
-3. Clone and `cargo build --release --features cli` the labelize source → `assets\labelize.exe`
-4. Run `pyinstaller zpl_converter.spec` → `dist/zpl_converter/`
-5. Package portable zip → `zpl-converter-<tag>-windows-x64-portable.zip`
-6. Compile Inno Setup installer (if `installer.iss` present)
-7. On tag push: publish GitHub Release with both files attached
+Three parallel jobs run on every push; the release job runs only on version tags:
+
+**`build-windows`** (`windows-latest`)
+1. Compile `labelize.exe` from source with Rust (`cargo build --release --features cli`)
+2. `pyinstaller zpl_converter.spec` → portable folder
+3. Zip → `zpl-converter-<tag>-windows-x64-portable.zip`
+4. Compile Inno Setup installer if `installer.iss` is present
+
+**`build-macos`** (`macos-latest`, Apple Silicon)
+1. Download pre-built `labelize-aarch64-apple-darwin` from labelize releases
+2. `pyinstaller zpl_converter_macos.spec` → `ZPL Converter.app` bundle
+3. Zip → `zpl-converter-<tag>-macos-arm64.zip`
+
+**`release`** (Ubuntu, runs after both builds, tag pushes only)
+1. Download artifacts from both build jobs
+2. Publish GitHub Release with all files attached
 
 ---
 
