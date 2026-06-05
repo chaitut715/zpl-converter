@@ -1,6 +1,13 @@
 # ZPL Converter
 
+[![Build](https://github.com/chaitut715/zpl-converter/actions/workflows/build.yml/badge.svg)](https://github.com/chaitut715/zpl-converter/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/chaitut715/zpl-converter)](https://github.com/chaitut715/zpl-converter/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)](https://github.com/chaitut715/zpl-converter/releases/latest)
+
 A self-contained Windows 10/11 desktop application that converts ZPL (Zebra Programming Language) label files to PNG or PDF — fully offline, no Java required.
+
+![ZPL Converter screenshot](screenshots/app-preview.png)
 
 ## Features
 
@@ -209,3 +216,18 @@ zpl-converter/
 ## Offline guarantee
 
 The built application makes zero network calls at runtime. All Python dependencies are bundled by PyInstaller. The `labelize` binary is included in `dist/zpl_converter/assets/`.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+The bundled `labelize` binary is also MIT licensed. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for full attribution.
+
+---
+
+## Contributing
+
+Bug reports and feature requests are welcome — please use the [issue templates](https://github.com/chaitut715/zpl-converter/issues/new/choose).  
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and PR guidelines.
