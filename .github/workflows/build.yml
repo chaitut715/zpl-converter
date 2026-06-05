@@ -63,30 +63,30 @@ jobs:
 
       - name: Build labelize from source
         working-directory: labelize-src
-        shell: pwsh
+        shell: bash
         run: |
+          set -euo pipefail
+          echo "=== Cargo.toml ==="
+          cat Cargo.toml
+          echo "=== cargo build --release ==="
           cargo build --release
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "cargo build failed with exit code $LASTEXITCODE"
-            exit 1
-          }
-          Write-Host "cargo build --release succeeded."
+          echo "=== target/release contents ==="
+          ls -lh target/release/*.exe 2>/dev/null || ls -lh target/release/ | head -20
 
       - name: Copy labelize.exe to assets
-        shell: pwsh
+        shell: bash
         run: |
-          $bin = "labelize-src\target\release\labelize.exe"
-          if (-not (Test-Path $bin)) {
-            Write-Host "Searching for any .exe produced by cargo:"
-            Get-ChildItem "labelize-src\target" -Recurse -Filter "labelize.exe" -ErrorAction SilentlyContinue |
-              Format-Table FullName, Length
-            Write-Error "labelize.exe not found at expected path: $bin"
+          set -euo pipefail
+          BIN=$(find labelize-src/target/release -maxdepth 1 -name "*.exe" | head -1)
+          if [ -z "$BIN" ]; then
+            echo "ERROR: No .exe found in labelize-src/target/release/"
+            find labelize-src/target -name "*.exe" 2>/dev/null || true
             exit 1
-          }
-          New-Item -ItemType Directory -Force -Path assets | Out-Null
-          Copy-Item $bin "assets\labelize.exe"
-          $size = (Get-Item "assets\labelize.exe").Length
-          Write-Host "labelize.exe copied OK — $size bytes"
+          fi
+          echo "Found binary: $BIN"
+          mkdir -p assets
+          cp "$BIN" assets/labelize.exe
+          echo "Copied OK — $(du -h assets/labelize.exe | cut -f1)"
 
       # ---------------------------------------------------------------
       # 4. PyInstaller build
