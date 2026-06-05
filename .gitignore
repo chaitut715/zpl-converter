@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PyInstaller output
+build/
+dist/
+*.spec.bak
+
+# Inno Setup output
+Output/
+
+# Runtime temp files
+/tmp/
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# Claude Code project files
+.claude/
+
+# Scratch / internal files (CLAUDE.md is intentionally committed)
+prompt.txt
+
+# The macOS/Linux labelize binary — Windows CI downloads labelize.exe separately
+assets/labelize
+assets/labelize.exe
+
+# Logs
+*.log

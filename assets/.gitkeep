@@ -1,0 +1,3 @@
+# Place labelize.exe here before running or building.
+# Download from: https://github.com/GOODBOY008/labelize/releases
+# The GitHub Actions workflow downloads it automatically during CI builds.
