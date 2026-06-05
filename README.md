@@ -118,11 +118,11 @@ No Python, no Java, no runtimes required.
 
 ---
 
-## Building the Windows executable (GitHub Actions)
+## Building with GitHub Actions
 
-The `.exe` is produced by a `windows-latest` GitHub Actions runner.
+Windows and macOS builds run in parallel CI jobs.
 
-> **There is no pre-built `labelize.exe`** in the Labelize releases.  
+> **Windows only:** there is no pre-built `labelize.exe` in the Labelize releases.  
 > The CI compiles it from source using the Rust toolchain (~8 min first build, ~3 min after caching).
 
 ### Release a new version
@@ -193,26 +193,35 @@ Windows 11 ARM has a built-in x64 emulation layer — the x64 `.exe` runs withou
 
 ```
 zpl-converter/
-├── main.py                   # Entry point — logging, binary check, top-level error guard
-├── config.py                 # LABELIZE_BIN, TEMP_DIR, LOG_FILE (MEIPASS-aware)
-├── requirements.txt          # PyQt6, reportlab, Pillow
-├── zpl_converter.spec        # PyInstaller onedir spec (Windows x64, console=False)
-├── installer.iss             # Inno Setup 6 script
-├── CLAUDE.md                 # Context for Claude Code sessions
-├── THIRD_PARTY_LICENSES.md   # License attribution for bundled software
+├── main.py                      # Entry point — logging, binary check, top-level error guard
+├── config.py                    # LABELIZE_BIN, TEMP_DIR, LOG_FILE (MEIPASS-aware)
+├── requirements.txt             # PyQt6, reportlab, Pillow
+├── zpl_converter.spec           # PyInstaller spec — Windows x64 onedir
+├── zpl_converter_macos.spec     # PyInstaller spec — macOS arm64 .app bundle
+├── installer.iss                # Inno Setup 6 script (Windows installer)
+├── LICENSE                      # MIT
+├── CHANGELOG.md                 # Version history
+├── CONTRIBUTING.md              # Dev setup and PR guidelines
+├── CLAUDE.md                    # Context for Claude Code sessions
+├── THIRD_PARTY_LICENSES.md      # License attribution for bundled software
+├── screenshots/
+│   └── app-preview.png          # App screenshot used in README
 ├── ui/
-│   ├── main_window.py        # Main window, toolbar, drag-and-drop, RenderThread, BatchThread
-│   └── preview_widget.py     # Scrollable PNG preview with auto-rescale and error banner
+│   ├── main_window.py           # Main window, toolbar, drag-and-drop, RenderThread, BatchThread
+│   └── preview_widget.py        # Scrollable PNG preview with auto-rescale and error banner
 ├── core/
-│   ├── renderer.py           # ZPL → PNG: preprocessing, labelize subprocess, multi-page collection
-│   ├── pdf_export.py         # PNG list → multi-page PDF at exact label dimensions
-│   └── batch.py              # Folder batch: *.zpl + *.txt, progress callback, failed_files.log
+│   ├── renderer.py              # ZPL → PNG: preprocessing, labelize subprocess, multi-page collection
+│   ├── pdf_export.py            # PNG list → multi-page PDF at exact label dimensions
+│   └── batch.py                 # Folder batch: *.zpl + *.txt, progress callback, failed_files.log
 ├── assets/
-│   ├── labelize              # macOS ARM64 binary (local dev, gitignored)
-│   └── labelize.exe          # Windows x64 binary (built by CI, gitignored)
+│   ├── labelize                 # macOS ARM64 binary (local dev, gitignored)
+│   └── labelize.exe             # Windows x64 binary (built by CI, gitignored)
 └── .github/
+    ├── ISSUE_TEMPLATE/
+    │   ├── bug_report.yml
+    │   └── feature_request.yml
     └── workflows/
-        └── build.yml         # CI: Rust build → PyInstaller → artifacts
+        └── build.yml            # CI: build-windows + build-macos → release
 ```
 
 ---

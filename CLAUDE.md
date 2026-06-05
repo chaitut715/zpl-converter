@@ -124,17 +124,34 @@ All rendering and batch processing runs off the main thread:
 
 ---
 
-## Windows CI build
+## CI build — three jobs
 
-No pre-built `labelize.exe` exists in the Labelize GitHub releases. `build.yml` compiles it from source:
+`build.yml` has three jobs: `build-windows`, `build-macos`, `release`.  
+The `release` job runs only on `v*` tags and waits for both build jobs.
+
+### build-windows (`windows-latest`)
+
+No pre-built `labelize.exe` exists in the Labelize releases — it's compiled from source:
 
 1. `dtolnay/rust-toolchain@stable` (target: `x86_64-pc-windows-msvc`)
 2. `git clone https://github.com/GOODBOY008/labelize labelize-src`
-3. `cargo build --release`
+3. `cargo build --release --features cli` — **`--features cli` is required**; without it cargo builds only the library and produces no binary
 4. Copy `target/release/labelize.exe` → `assets/labelize.exe`
-5. `pyinstaller zpl_converter.spec`
+5. `pyinstaller zpl_converter.spec` → `dist/zpl_converter/`
+6. Zip → `zpl-converter-<tag>-windows-x64-portable.zip`
 
-Cargo build artifacts are cached via `actions/cache@v4` keyed on `Cargo.lock`. First build ~8–10 min; subsequent builds ~3 min.
+Cargo artifacts cached via `actions/cache@v4`. First build ~8–10 min; subsequent ~3 min.
+
+### build-macos (`macos-latest`, Apple Silicon)
+
+Pre-built ARM binary is available in labelize releases:
+
+1. Download `labelize-aarch64-apple-darwin.tar.gz` from labelize v1.1.0 release
+2. Extract → `assets/labelize`, `chmod +x`
+3. `pyinstaller zpl_converter_macos.spec` → `dist/ZPL Converter.app`
+4. Zip → `zpl-converter-<tag>-macos-arm64.zip`
+
+The `.app` bundle is **unsigned** — users bypass Gatekeeper with right-click → Open, or `xattr -dr com.apple.quarantine "ZPL Converter.app"`.
 
 ---
 
@@ -158,3 +175,4 @@ The preprocessed ZPL is written to `<TEMP_DIR>/<stem>_processed.zpl` before rend
 - Do not hardcode any paths — all paths go through `config.py`.
 - Do not add network calls at runtime — the app must stay fully offline.
 - Do not return a single `Path` from renderer methods — they return `list[Path]`.
+- Do not run `cargo build --release` without `--features cli` — it builds only the library, exits 0, and produces no binary.
