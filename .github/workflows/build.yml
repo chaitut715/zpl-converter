@@ -42,6 +42,14 @@ jobs:
           toolchain: stable
           targets: x86_64-pc-windows-msvc
 
+      - name: Clone labelize source
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "labelize-src")) {
+            git clone https://github.com/GOODBOY008/labelize labelize-src
+          }
+          Write-Host "Labelize source ready."
+
       - name: Cache Rust build artifacts
         uses: actions/cache@v4
         with:
@@ -53,18 +61,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Clone and build labelize
+      - name: Build labelize from source
+        working-directory: labelize-src
         shell: pwsh
         run: |
-          if (-not (Test-Path "labelize-src")) {
-            git clone https://github.com/GOODBOY008/labelize labelize-src
-          }
-          cd labelize-src
           cargo build --release
-          New-Item -ItemType Directory -Force -Path ..\assets | Out-Null
-          Copy-Item "target\release\labelize.exe" "..\assets\labelize.exe"
-          $size = (Get-Item "..\assets\labelize.exe").Length
-          Write-Host "labelize.exe built OK — $size bytes"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "cargo build failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+          Write-Host "cargo build --release succeeded."
+
+      - name: Copy labelize.exe to assets
+        shell: pwsh
+        run: |
+          $bin = "labelize-src\target\release\labelize.exe"
+          if (-not (Test-Path $bin)) {
+            Write-Host "Searching for any .exe produced by cargo:"
+            Get-ChildItem "labelize-src\target" -Recurse -Filter "labelize.exe" -ErrorAction SilentlyContinue |
+              Format-Table FullName, Length
+            Write-Error "labelize.exe not found at expected path: $bin"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path assets | Out-Null
+          Copy-Item $bin "assets\labelize.exe"
+          $size = (Get-Item "assets\labelize.exe").Length
+          Write-Host "labelize.exe copied OK — $size bytes"
 
       # ---------------------------------------------------------------
       # 4. PyInstaller build
