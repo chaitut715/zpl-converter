@@ -92,30 +92,44 @@ Width and height are passed in millimetres (`inches × 25.4`).
 
 ---
 
+## Download
+
+Grab the latest release from the [**Releases page**](https://github.com/chaitut715/zpl-converter/releases/latest):
+
+| File | Description |
+|---|---|
+| `zpl-converter-*-portable.zip` | **Portable** — unzip anywhere, run `zpl_converter.exe` |
+| `zpl-converter-setup-*.exe` | **Installer** — adds Start Menu shortcut and uninstaller |
+
+No Python, no Java, no runtimes required.
+
+---
+
 ## Building the Windows executable (GitHub Actions)
 
 The `.exe` is produced by a `windows-latest` GitHub Actions runner.
 
 > **There is no pre-built `labelize.exe`** in the Labelize releases.  
-> The CI compiles it from source using the Rust toolchain (~5 min first build, ~30s after caching).
+> The CI compiles it from source using the Rust toolchain (~8 min first build, ~3 min after caching).
 
-### Trigger a build
+### Release a new version
 
-Push to `main` or open a pull request against `main`. The workflow at `.github/workflows/build.yml` will:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow will build, package, and publish a GitHub Release automatically with both the portable zip and the installer attached.
+
+### CI build steps
 
 1. Set up Python 3.12 and install dependencies
 2. Install Rust stable (MSVC) via `dtolnay/rust-toolchain@stable`
-3. Clone and `cargo build --release` the labelize source → `assets\labelize.exe`
+3. Clone and `cargo build --release --features cli` the labelize source → `assets\labelize.exe`
 4. Run `pyinstaller zpl_converter.spec` → `dist/zpl_converter/`
-5. Upload artifact **`zpl-converter-windows-x64`** (the runnable folder)
-6. Compile Inno Setup installer → artifact **`zpl-converter-installer`** (if available)
-
-### Download and run
-
-1. GitHub repo → **Actions** → latest green run → **Artifacts**
-2. Download `zpl-converter-windows-x64`
-3. Unzip → `zpl_converter/` folder
-4. Double-click `zpl_converter.exe` — no installer, no Python, no runtimes needed
+5. Package portable zip → `zpl-converter-<tag>-windows-x64-portable.zip`
+6. Compile Inno Setup installer (if `installer.iss` present)
+7. On tag push: publish GitHub Release with both files attached
 
 ---
 
@@ -163,6 +177,7 @@ zpl-converter/
 ├── zpl_converter.spec        # PyInstaller onedir spec (Windows x64, console=False)
 ├── installer.iss             # Inno Setup 6 script
 ├── CLAUDE.md                 # Context for Claude Code sessions
+├── THIRD_PARTY_LICENSES.md   # License attribution for bundled software
 ├── ui/
 │   ├── main_window.py        # Main window, toolbar, drag-and-drop, RenderThread, BatchThread
 │   └── preview_widget.py     # Scrollable PNG preview with auto-rescale and error banner

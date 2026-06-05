@@ -3,6 +3,7 @@ name: Build ZPL Converter
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -66,8 +67,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== Cargo.toml ==="
-          cat Cargo.toml
           echo "=== cargo build --release --features cli ==="
           cargo build --release --features cli
           echo "=== target/release contents ==="
@@ -105,18 +104,30 @@ jobs:
           Get-ChildItem "dist\zpl_converter\" | Format-Table Name, Length
 
       # ---------------------------------------------------------------
-      # 5. Upload application artifact
+      # 5. Package portable zip
       # ---------------------------------------------------------------
-      - name: Upload application artifact
+      - name: Create portable zip
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF -match "refs/tags/(.+)") { $Matches[1] } else { "dev" }
+          $zipName = "zpl-converter-$version-windows-x64-portable.zip"
+          Compress-Archive -Path "dist\zpl_converter\*" -DestinationPath $zipName
+          Write-Host "Created $zipName"
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+
+      # ---------------------------------------------------------------
+      # 6. Upload portable zip as CI artifact (always)
+      # ---------------------------------------------------------------
+      - name: Upload portable zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: zpl-converter-windows-x64
-          path: dist/zpl_converter/
+          name: zpl-converter-windows-x64-portable
+          path: ${{ env.ZIP_NAME }}
           if-no-files-found: error
           retention-days: 30
 
       # ---------------------------------------------------------------
-      # 6. Optional: compile Inno Setup installer
+      # 7. Optional: compile Inno Setup installer
       # ---------------------------------------------------------------
       - name: Install Inno Setup 6
         if: hashFiles('installer.iss') != ''
@@ -138,11 +149,36 @@ jobs:
           Write-Host "Installer compiled OK."
         continue-on-error: true
 
-      - name: Upload installer artifact
-        if: hashFiles('Output/zpl-converter-setup*.exe') != ''
-        uses: actions/upload-artifact@v4
+      # ---------------------------------------------------------------
+      # 8. Publish GitHub Release on version tag (v*)
+      # ---------------------------------------------------------------
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
-          name: zpl-converter-installer
-          path: Output/zpl-converter-setup*.exe
-          if-no-files-found: warn
-          retention-days: 30
+          name: ZPL Converter ${{ github.ref_name }}
+          body: |
+            ## ZPL Converter ${{ github.ref_name }}
+
+            Self-contained Windows 10/11 desktop app — converts ZPL label files to PNG and PDF, fully offline.
+
+            ### Downloads
+
+            | File | Description |
+            |---|---|
+            | `zpl-converter-*-portable.zip` | Portable — unzip and run `zpl_converter.exe`, no install needed |
+            | `zpl-converter-setup-*.exe` | Installer — adds Start Menu shortcut and uninstaller |
+
+            ### What's included
+            - ZPL → PNG / PDF rendering via [labelize](https://github.com/GOODBOY008/labelize) (bundled, MIT licensed)
+            - Drag-and-drop, paste, batch folder processing
+            - Multi-label ZPL support
+            - QR code compatibility fix
+
+            See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for bundled software attribution.
+          files: |
+            ${{ env.ZIP_NAME }}
+            Output/zpl-converter-setup-*.exe
+          fail_on_unmatched_files: false
+          draft: false
+          prerelease: false

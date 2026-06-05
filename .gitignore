@@ -30,5 +30,8 @@ prompt.txt
 assets/labelize
 assets/labelize.exe
 
+# Local release staging folder — use GitHub Releases for distribution
+releases/
+
 # Logs
 *.log
