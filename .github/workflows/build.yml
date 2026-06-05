@@ -68,8 +68,8 @@ jobs:
           set -euo pipefail
           echo "=== Cargo.toml ==="
           cat Cargo.toml
-          echo "=== cargo build --release ==="
-          cargo build --release
+          echo "=== cargo build --release --features cli ==="
+          cargo build --release --features cli
           echo "=== target/release contents ==="
           ls -lh target/release/*.exe 2>/dev/null || ls -lh target/release/ | head -20
 
