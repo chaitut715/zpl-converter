@@ -11,6 +11,8 @@ jobs:
   build:
     name: Windows x64 build
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       # ---------------------------------------------------------------
